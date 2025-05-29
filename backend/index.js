@@ -4,21 +4,39 @@ import cors from "cors";
 import connectToDB from "./config/db.js";
 import customerRoutes from "./routes/customer.routes.js";
 import orderRoutes from "./routes/order.routes.js";
+import segmentRoutes from "./routes/segment.routes.js";
+import campaignRoutes from "./routes/campaign.routes.js";
+import authRoutes from "./routes/auth.routes.js";
+import { authenticateJWT } from "./middlewares/auth.js";
+
+dotenv.config();
 
 const app = express();
-dotenv.config();
-app.use(cors());
+
+app.use(
+  cors({
+    origin: [`"${process.env.BASE_URL_FRONTEND}"`],
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 connectToDB();
 
-app.use("/api/customers", customerRoutes);
-app.use("/api/orders", orderRoutes);
+// Public API routes
+app.use("/api/auth", authRoutes);
 
+// Protected API routes
+app.use("/api/customers", authenticateJWT, customerRoutes);
+app.use("/api/orders", authenticateJWT, orderRoutes);
+app.use("/api/campaigns", authenticateJWT, campaignRoutes);
+app.use("/api/segments", authenticateJWT, segmentRoutes);
+
+// Root endpoint
 app.get("/", (req, res) => {
-  res.send("Mini CRM Backend Running");
+  res.send("Mini CRM Backend API is Running");
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
