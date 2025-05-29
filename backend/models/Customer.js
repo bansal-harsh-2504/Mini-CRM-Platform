@@ -2,12 +2,20 @@ import { Schema, Model } from "mongoose";
 
 const customerSchema = new Schema(
   {
-    name: String,
-    email: String,
+    owner: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    name: {
+      type: String,
+      required: true,
+    },
+    email: {
+      type: String,
+      index: true,
+      required: true,
+    },
     phone: String,
     totalSpend: Number,
     visits: Number,
-    lastActive: Date,
+    lastPurchasedDate: Date,
   },
   { timestamps: true }
 );
