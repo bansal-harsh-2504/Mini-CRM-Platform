@@ -1,8 +1,14 @@
 import { Router } from "express";
-import { getCampaignHistory } from "../controllers/campaign.controller.js";
+import {
+  createCampaign,
+  getCampaignHistory,
+  previewAudienceSize,
+} from "../controllers/campaign.controller.js";
 
 const router = Router();
 
-router.post("/history", getCampaignHistory);
+router.get("/history", getCampaignHistory);
+router.post("/", createCampaign);
+router.post("/preview", previewAudienceSize);
 
 export default router;
