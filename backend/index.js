@@ -4,9 +4,9 @@ import cors from "cors";
 import connectToDB from "./config/db.js";
 import customerRoutes from "./routes/customer.routes.js";
 import orderRoutes from "./routes/order.routes.js";
-import segmentRoutes from "./routes/segment.routes.js";
 import campaignRoutes from "./routes/campaign.routes.js";
 import authRoutes from "./routes/auth.routes.js";
+import aiRouter from "./services/ai.js";
 import { authenticateJWT } from "./middlewares/auth.js";
 
 dotenv.config();
@@ -31,7 +31,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/customers", authenticateJWT, customerRoutes);
 app.use("/api/orders", authenticateJWT, orderRoutes);
 app.use("/api/campaigns", authenticateJWT, campaignRoutes);
-app.use("/api/segments", authenticateJWT, segmentRoutes);
+app.use("/api/ai", authenticateJWT, aiRouter);
 
 // Root endpoint
 app.get("/", (req, res) => {
