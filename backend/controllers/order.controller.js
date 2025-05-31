@@ -1,4 +1,4 @@
-import Order from "../models/order.model.js";
+import Order from "../models/Order.js";
 
 export const createOrder = async (req, res) => {
   const { customerId, amount } = req.body;
@@ -9,7 +9,7 @@ export const createOrder = async (req, res) => {
       date: new Date(),
       owner: req.userId,
     });
-    res.status(201).json({ success: true, data: order });
+    res.status(201).json({ success: true, data: { order } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -18,7 +18,7 @@ export const createOrder = async (req, res) => {
 export const getOrders = async (req, res) => {
   try {
     const orders = await Order.find({ owner: req.userId });
-    res.status(200).json({ success: true, data: orders });
+    res.status(200).json({ success: true, data: { orders } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -28,7 +28,7 @@ export const getOrdersByCustomerId = async (req, res) => {
   const { customerId } = req.params;
   try {
     const orders = await Order.find({ customerId, owner: req.userId });
-    res.status(200).json({ success: true, data: orders });
+    res.status(200).json({ success: true, data: { orders } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -46,7 +46,7 @@ export const getOrderById = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Order not found" });
     }
-    res.status(200).json({ success: true, data: order });
+    res.status(200).json({ success: true, data: { order } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
