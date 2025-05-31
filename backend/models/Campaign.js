@@ -1,24 +1,25 @@
-import { Model, Schema } from "mongoose";
+import { model, Schema } from "mongoose";
 
 const campaignSchema = new Schema(
   {
     owner: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    segmentId: { type: Schema.Types.ObjectId, ref: "Segment", required: true },
     name: { type: String, required: true },
-    deliveryStats: {
-      sent: { type: Number, default: 0 },
-      failed: { type: Number, default: 0 },
-      audienceSize: { type: Number, required: true },
-    },
+    rules: { type: Schema.Types.Mixed, required: true },
+    audienceSize: { type: Number, required: true },
     status: {
       type: String,
       enum: ["running", "completed"],
       default: "running",
     },
+    objective: { type: String, required: true },
+    deliveryStats: {
+      sent: { type: Number, default: 0 },
+      failed: { type: Number, default: 0 },
+    },
   },
   { timestamps: true }
 );
 
-const Campaign = Model("Campaign", campaignSchema);
+const Campaign = model("Campaign", campaignSchema);
 
 export default Campaign;

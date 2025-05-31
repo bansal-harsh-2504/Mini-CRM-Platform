@@ -1,4 +1,4 @@
-import { Model, Schema } from "mongoose";
+import { model, Schema } from "mongoose";
 
 const communicationLogSchema = new Schema(
   {
@@ -23,6 +23,6 @@ const communicationLogSchema = new Schema(
   { timestamps: true }
 );
 
-const CommunicationLog = Model("CommunicationLog", communicationLogSchema);
+const CommunicationLog = model("CommunicationLog", communicationLogSchema);
 
 export default CommunicationLog;
