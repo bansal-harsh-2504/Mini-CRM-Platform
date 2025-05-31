@@ -2,13 +2,14 @@ import jwt from "jsonwebtoken";
 
 export const authenticateJWT = (req, res, next) => {
   const token = req.headers["authorization"];
-  if (!token) {
+  if (!token || !token.startsWith("Bearer ")) {
     return res
       .status(401)
       .json({ success: false, message: "Access token is required" });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+  const tokenString = token.split(" ")[1];
+  jwt.verify(tokenString, process.env.JWT_SECRET, (err, decoded) => {
     if (err) {
       return res
         .status(403)
