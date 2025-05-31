@@ -1,31 +1,20 @@
-function parseRulesToMongoQuery(ruleNode) {
-  if (ruleNode.condition) {
-    // it's a group
-    const subQueries = ruleNode.rules.map(parseRulesToMongoQuery);
-    if (ruleNode.condition === "AND") {
-      return { $and: subQueries };
-    } else if (ruleNode.condition === "OR") {
-      return { $or: subQueries };
-    }
-  } else {
-    // it's a single rule
-    const { field, operator, value } = ruleNode;
-    switch (operator) {
-      case ">":
-        return { [field]: { $gt: value } };
-      case "<":
-        return { [field]: { $lt: value } };
-      case ">=":
-        return { [field]: { $gte: value } };
-      case "<=":
-        return { [field]: { $lte: value } };
-      case "==":
-        return { [field]: value };
-      case "!=":
-        return { [field]: { $ne: value } };
-      default:
-        throw new Error("Unsupported operator");
-    }
-  }
-}
+const parseRulesToMongoQuery = async (rules, logic) => {
+  const map = {
+    ">": "$gt",
+    "<": "$lt",
+    ">=": "$gte",
+    "<=": "$lte",
+    "==": "$eq",
+    "!=": "$ne",
+  };
+  const conditions = rules.map(({ metric, operator, value }) => {
+    let parsedValue =
+      metric === "lastPurchased" ? new Date(value) : Number(value);
+    return {
+      [metric]: { [map[operator]]: parsedValue },
+    };
+  });
+
+  return logic === "OR" ? { $or: conditions } : { $and: conditions };
+};
 export default parseRulesToMongoQuery;
