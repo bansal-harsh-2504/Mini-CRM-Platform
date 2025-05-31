@@ -13,9 +13,15 @@ const customerSchema = new Schema(
       required: true,
     },
     phone: String,
-    totalSpend: Number,
-    visits: Number,
-    lastPurchasedDate: Date,
+    totalSpend: {
+      type: Number,
+      default: 0,
+    },
+    visits: {
+      type: Number,
+      default: 0,
+    },
+    lastPurchased: Date,
   },
   { timestamps: true }
 );

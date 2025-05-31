@@ -14,14 +14,15 @@ export const getCampaignHistory = async (req, res) => {
 };
 
 export const previewAudienceSize = async (req, res) => {
-  const { rules } = req.body;
-  if (!rules) {
-    return res
-      .status(400)
-      .json({ success: false, message: "Missing rule in request body" });
+  const { rules, logic } = req.body;
+  if (!rules || !logic) {
+    return res.status(400).json({
+      success: false,
+      message: "Missing rules or logic in request body",
+    });
   }
   try {
-    const mongoQuery = parseRulesToMongoQuery(rules);
+    const mongoQuery = parseRulesToMongoQuery(rules, logic);
     const count = await Customer.countDocuments(mongoQuery);
     res.status(200).json({ success: true, data: { count } });
   } catch (error) {
@@ -30,15 +31,28 @@ export const previewAudienceSize = async (req, res) => {
 };
 
 export const createCampaign = async (req, res) => {
-  const { name, rules, objective } = req.body;
+  const { name, rules, logic, objective } = req.body;
+  if (!name || !objective) {
+    return res.status(400).json({
+      success: false,
+      message: "Campaign name and objective are required fields",
+    });
+  }
+  if (!rules || !logic) {
+    return res.status(400).json({
+      success: false,
+      message: "Missing rules or logic in request body",
+    });
+  }
   try {
-    const mongoQuery = parseRulesToMongoQuery(rules);
+    const mongoQuery = parseRulesToMongoQuery(rules, logic);
     const audienceSize = await Customer.countDocuments(mongoQuery);
 
     const campaign = await Campaign.create({
       owner: req.userId,
       name,
       rules,
+      logic,
       audienceSize,
       objective,
       deliveryStats: {

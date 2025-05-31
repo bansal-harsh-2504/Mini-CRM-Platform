@@ -5,6 +5,11 @@ const campaignSchema = new Schema(
     owner: { type: Schema.Types.ObjectId, ref: "User", required: true },
     name: { type: String, required: true },
     rules: { type: Schema.Types.Mixed, required: true },
+    logic: {
+      type: String,
+      enum: ["AND", "OR"],
+      default: "AND",
+    },
     audienceSize: { type: Number, required: true },
     status: {
       type: String,
