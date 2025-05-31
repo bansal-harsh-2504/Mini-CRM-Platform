@@ -1,23 +1,33 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { useNavigate } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
 import axios from "axios";
 
 const CampaignHistory = () => {
+  const { token } = useContext(AuthContext);
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const fetchCampaigns = async () => {
+    if (!token) {
+      console.error("No token found. Please log in.");
+      return;
+    }
     setLoading(true);
     try {
-      const response = await axios.get(
-        `${import.meta.process.env.VITE_BASE_URL_BACKEND}/campaigns/history`,
-        {
-          withCredentials: true,
-        }
-      );
-      const data = await response.json();
-      setCampaigns(data);
+      const response = (
+        await axios.get(
+          `${import.meta.env.VITE_BASE_URL_BACKEND}/campaigns/history`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            withCredentials: true,
+          }
+        )
+      ).data;
+      setCampaigns(response.data.campaigns);
     } catch (error) {
       console.error("Error fetching campaigns:", error);
     } finally {
@@ -27,7 +37,7 @@ const CampaignHistory = () => {
 
   useEffect(() => {
     fetchCampaigns();
-  }, []);
+  }, [token]);
 
   const handleCreateCampaign = () => {
     navigate("/campaigns/new");
@@ -67,7 +77,7 @@ const CampaignHistory = () => {
           ) : (
             campaigns.map((campaign) => (
               <div
-                key={campaign.id}
+                key={campaign._id}
                 className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow"
               >
                 <h2 className="text-xl font-semibold mb-2">{campaign.name}</h2>

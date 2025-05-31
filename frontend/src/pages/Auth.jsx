@@ -10,16 +10,18 @@ const Auth = () => {
   // On successful Google login, exchange Google's credential for your app's JWT
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
-      const res = await axios.post(
-        `${import.meta.env.VITE_BASE_URL_BACKEND}/auth/google`,
-        {
-          credentials: credentialResponse.credential,
-        },
-        { withCredentials: true }
-      );
-      if (res.data.success) {
-        localStorage.setItem("jwt_token", res.data.data.token);
-        setToken(res.data.data.token); // Store JWT for subsequent API calls
+      const res = (
+        await axios.post(
+          `${import.meta.env.VITE_BASE_URL_BACKEND}/auth/google`,
+          {
+            credentials: credentialResponse.credential,
+          },
+          { withCredentials: true }
+        )
+      ).data;
+      if (res.success) {
+        localStorage.setItem("jwt_token", res.data.token);
+        setToken(res.data.token); // Store JWT for subsequent API calls
         setLoggedIn(true);
         navigate("/");
       }

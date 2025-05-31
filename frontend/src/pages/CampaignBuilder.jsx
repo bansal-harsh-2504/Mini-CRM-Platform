@@ -4,16 +4,20 @@ import axios from "axios";
 
 const CampaignBuilder = () => {
   const { token } = useContext(AuthContext);
-  const [aiLoading, setAiLoading] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState([]);
   const [aiError, setAiError] = useState("");
   const [objective, setObjective] = useState("");
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(null);
   const [campaignName, setCampaignName] = useState("");
-  const [segmentLogic, setSegmentLogic] = useState("AND");
+  const [audienceCount, setAudienceCount] = useState(0);
+  const [error, setError] = useState("");
+  const [logic, setlogic] = useState("AND");
   const [rules, setRules] = useState([
     { metric: "totalSpend", operator: ">", value: "" },
   ]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
 
   const handleRuleChange = (index, field, value) => {
     const updatedRules = [...rules];
@@ -25,37 +29,102 @@ const CampaignBuilder = () => {
     setRules([...rules, { metric: "totalSpend", operator: ">", value: "" }]);
   };
 
-  const handlePreview = () => {
-    console.log("Previewing audience...", { segmentLogic, rules });
+  const handlePreview = async () => {
+    setError("");
+    setAudienceCount(null);
+    if (rules.some((rule) => rule.value === "")) {
+      setError("Please fill in all rule values before previewing.");
+      return;
+    }
+    if (error) return;
+    if (previewLoading) return;
+    try {
+      setPreviewLoading(true);
+      const payloadRules = rules
+        .filter((rule) => rule.value !== "")
+        .map(({ metric, operator, value }) => ({
+          metric,
+          operator,
+          value,
+        }));
+
+      const response = (
+        await axios.post(
+          `${import.meta.env.VITE_BASE_URL_BACKEND}/campaigns/preview`,
+          {
+            rules: payloadRules,
+            logic,
+          },
+          {
+            withCredentials: true,
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        )
+      ).data;
+      if (response.success) {
+        setAudienceCount(response.data.count);
+      }
+    } catch (error) {
+      const message =
+        error.response?.data?.message || error.message || "Unknown error";
+      setError("Failed to preview audience size: " + message);
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   const handleCreate = async () => {
+    setError("");
+    if (!campaignName.trim()) {
+      setError("Campaign name is required.");
+      return;
+    }
+    if (rules.some((rule) => rule.value === "")) {
+      setError("Please fill in all rule values before creating the campaign.");
+      return;
+    }
+    if (!objective.trim()) {
+      setError("Campaign objective is required.");
+      return;
+    }
+    if (createLoading) return;
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_BASE_URL_BACKEND}/campaigns`,
-        {
-          name: campaignName,
-          rules,
-          objective,
-        },
-        {
-          withCredentials: true,
-          headers: {
-            Authorization: `Bearer ${token}`,
+      setCreateLoading(true);
+      const response = (
+        await axios.post(
+          `${import.meta.env.VITE_BASE_URL_BACKEND}/campaigns`,
+          {
+            name: campaignName,
+            rules,
+            objective,
           },
-        }
-      );
-      console.log("Campaign created successfully:", response.data);
+          {
+            withCredentials: true,
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        )
+      ).data;
     } catch (error) {
       console.error("Error creating campaign:", error);
+    } finally {
+      setCreateLoading(false);
     }
   };
 
   const handleSuggest = async () => {
-    setAiLoading(true);
     setAiError("");
     setAiSuggestions([]);
+    if (!objective.trim()) {
+      setAiError("Please enter a campaign objective to get suggestions.");
+      return;
+    }
+    if (aiLoading) return;
     try {
+      setAiLoading(true);
       const res = (
         await axios.post(
           `${import.meta.env.VITE_BASE_URL_BACKEND}/ai/suggest`,
@@ -68,7 +137,6 @@ const CampaignBuilder = () => {
           }
         )
       ).data;
-      console.log("frontend", res);
       setAiSuggestions(res.data.suggestions);
     } catch (e) {
       setAiError(
@@ -95,14 +163,14 @@ const CampaignBuilder = () => {
       </h3>
       <select
         className="border px-3 py-2 mb-4 rounded-md"
-        value={segmentLogic}
-        onChange={(e) => setSegmentLogic(e.target.value)}
+        value={logic}
+        onChange={(e) => setlogic(e.target.value)}
       >
         <option value="AND">AND</option>
         <option value="OR">OR</option>
       </select>{" "}
       <span className="text-sm font-normal text-gray-500">
-        (Combine rules with <span className="font-bold">{segmentLogic}</span>)
+        (Combine rules with <span className="font-bold">{logic}</span>)
       </span>
       {rules.map((rule, index) => (
         <div key={index} className="flex flex-wrap items-center gap-4 mb-4">
@@ -113,7 +181,7 @@ const CampaignBuilder = () => {
           >
             <option value="totalSpend">Total Spend (₹)</option>
             <option value="visits">Visits</option>
-            <option value="lastActive">Last Active</option>
+            <option value="lastPurchased">Last Purchased</option>
           </select>
 
           <select
@@ -125,14 +193,14 @@ const CampaignBuilder = () => {
           >
             <option value=">">&gt;</option>
             <option value="<">&lt;</option>
-            <option value="=">=</option>
+            <option value="==">=</option>
             <option value="<=">&lt;=</option>
             <option value=">=">&gt;=</option>
             <option value="!=">!=</option>
           </select>
 
           <input
-            type="number"
+            type={rule.metric === "lastPurchased" ? "date" : "number"}
             className="border px-3 py-2 rounded-md w-28"
             value={rule.value}
             onChange={(e) => handleRuleChange(index, "value", e.target.value)}
@@ -159,20 +227,29 @@ const CampaignBuilder = () => {
       >
         + Add Rule
       </button>
+      <div className="mb-4">
+        <strong className="text-gray-700">Audience Size: </strong>
+        <span className="text-gray-900">{audienceCount}</span>
+      </div>
       <div className="flex gap-4 mb-8">
         <button
           className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 cursor-pointer"
           onClick={handlePreview}
         >
-          Preview Audience
+          {previewLoading ? "Previewing..." : "Preview Audience Size"}
         </button>
         <button
           className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 cursor-pointer"
           onClick={handleCreate}
         >
-          Create Campaign
+          {createLoading ? "Creating..." : "Create Campaign"}
         </button>
       </div>
+      {error && (
+        <div className="text-red-500 -mt-6 mb-2">
+          <strong>Error:</strong> {error}
+        </div>
+      )}
       <h3 className="text-lg font-semibold text-gray-700 mb-2">
         Campaign Objective{" "}
         <span className="text-sm text-gray-500">(for AI suggestions)</span>
