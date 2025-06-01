@@ -32,21 +32,20 @@ export const previewAudienceSize = async (req, res) => {
 
 export const createCampaign = async (req, res) => {
   const { name, rules, logic, objective } = req.body;
-  if (!name || !objective) {
+
+  if (!name || !objective || !rules || !logic) {
     return res.status(400).json({
       success: false,
-      message: "Campaign name and objective are required fields",
+      message: "Required fields: name, rules, logic, and objective",
     });
   }
-  if (!rules || !logic) {
-    return res.status(400).json({
-      success: false,
-      message: "Missing rules or logic in request body",
-    });
-  }
+
+  const vendor_reference = req.user.vendor_reference;
+
   try {
     const mongoQuery = parseRulesToMongoQuery(rules, logic);
-    const audienceSize = await Customer.countDocuments(mongoQuery);
+    const customers = await Customer.find(mongoQuery);
+    const audienceSize = customers.length;
 
     const campaign = await Campaign.create({
       owner: req.userId,
@@ -55,11 +54,33 @@ export const createCampaign = async (req, res) => {
       logic,
       audienceSize,
       objective,
-      deliveryStats: {
-        sent: 0,
-        failed: 0,
-      },
+      deliveryStats: { sent: 0, failed: 0 },
     });
+
+    for (const customer of customers) {
+      const personalizedMessage = `Hi ${customer.name}, ${objective}`;
+      const log = await CommunicationLog.create({
+        campaignId: campaign._id,
+        customerId: customer._id,
+        message: personalizedMessage,
+        vendor_reference,
+      });
+
+      await log.save();
+      try {
+        await axios.post(`${process.env.BASE_URL}/api/vendor/send`, {
+          campaignId: campaign._id,
+          customerId: customer._id,
+          personalizedMessage,
+          email: customer.email,
+        });
+      } catch (e) {
+        console.error("Error in create Campaign controller:", e.message);
+      }
+    }
+
+    campaign.status = "completed";
+    await campaign.save();
 
     res.status(201).json({ success: true, data: { campaign } });
   } catch (error) {

@@ -1,7 +1,7 @@
 import User from "../models/User.js";
 import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
-
+import { v4 as uuidv4 } from "uuid";
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
@@ -24,6 +24,7 @@ export const authenticateUser = async (req, res) => {
       user = new User({
         name: payload.name,
         email: payload.email,
+        vendor_reference: uuidv4(),
       });
       await user.save();
     }
@@ -32,6 +33,7 @@ export const authenticateUser = async (req, res) => {
         userId: user._id,
         email: user.email,
         name: user.name,
+        vendor_reference: user.vendor_reference,
       },
       process.env.JWT_SECRET,
       {
