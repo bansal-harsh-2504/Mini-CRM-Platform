@@ -64,7 +64,7 @@ const Ingest = () => {
         email: "john@example.com",
         items: ["item1", "item2"],
         amount: 29.99,
-        date: "2025-06-01",
+        orderDate: "2025-06-01",
       },
     ],
   };

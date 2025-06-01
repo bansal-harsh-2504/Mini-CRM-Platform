@@ -1,4 +1,4 @@
-import { model, Schema } from "mongoose";
+import mongoose, { model, Schema } from "mongoose";
 
 const communicationLogSchema = new Schema(
   {
@@ -23,6 +23,8 @@ const communicationLogSchema = new Schema(
   { timestamps: true }
 );
 
-const CommunicationLog = model("CommunicationLog", communicationLogSchema);
+const CommunicationLog =
+  mongoose.models.CommunicationLog ||
+  model("CommunicationLog", communicationLogSchema);
 
 export default CommunicationLog;

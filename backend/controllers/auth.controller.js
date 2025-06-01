@@ -46,6 +46,7 @@ export const authenticateUser = async (req, res) => {
       message: "Google token verified successfully",
       data: {
         token,
+        user,
       },
     });
   } catch (error) {

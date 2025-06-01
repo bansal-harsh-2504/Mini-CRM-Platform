@@ -16,7 +16,7 @@ export const authenticateJWT = (req, res, next) => {
         .json({ success: false, message: "Invalid access token" });
     }
     req.userId = decoded.userId;
-    req.user.vendor_reference = decoded.vendor_reference;
+    req.vendor_reference = decoded.vendor_reference;
     next();
   });
 };

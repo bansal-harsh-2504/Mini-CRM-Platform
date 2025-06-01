@@ -1,7 +1,7 @@
 import Customer from "../models/Customer.js";
 
 export const ingestCustomers = async (req, res) => {
-  let { customers } = req.body;
+  let customers = req.body.type;
   if (!Array.isArray(customers)) customers = [customers];
 
   for (const cust of customers) {

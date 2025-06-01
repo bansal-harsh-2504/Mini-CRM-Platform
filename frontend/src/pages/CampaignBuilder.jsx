@@ -98,6 +98,7 @@ const CampaignBuilder = () => {
           name: campaignName,
           rules,
           objective,
+          logic,
         },
         {
           withCredentials: true,

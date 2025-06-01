@@ -2,20 +2,20 @@ import Order from "../models/Order.js";
 import Customer from "../models/Customer.js";
 
 export const ingestOrders = async (req, res) => {
-  let { orders } = req.body;
+  let orders = req.body.type;
   if (!Array.isArray(orders)) orders = [orders];
 
   for (const order of orders) {
-    if (!order.customerEmail || !order.orderDate || !order.amount) {
+    if (!order.email || !order.orderDate || !order.amount) {
       return res.status(400).json({
         success: false,
-        message: "Each order must have customerEmail and orderDate and amount",
+        message: "Each order must have email and orderDate and amount",
       });
     }
   }
 
   try {
-    const emails = [...new Set(orders.map((o) => o.customerEmail))];
+    const emails = [...new Set(orders.map((o) => o.email))];
     const customers = await Customer.find({
       owner: req.userId,
       email: { $in: emails },
@@ -29,17 +29,17 @@ export const ingestOrders = async (req, res) => {
     const operations = [];
 
     for (const order of orders) {
-      const customerId = emailToCustomerId[order.customerEmail];
+      const customerId = emailToCustomerId[order.email];
       if (!customerId) {
         return res.status(400).json({
           success: false,
-          message: `Customer with email ${order.customerEmail} not found`,
+          message: `Customer with email ${order.email} not found`,
         });
       }
 
       operations.push({
         updateOne: {
-          filter: { orderId: order.orderId, customerId, owner: req.userId },
+          filter: { customerId, owner: req.userId },
           update: {
             $set: { ...order, customerId, owner: req.userId },
           },
