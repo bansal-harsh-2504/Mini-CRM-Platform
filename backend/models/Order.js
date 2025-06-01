@@ -13,7 +13,7 @@ const orderSchema = new Schema(
       required: true,
     },
     items: [String],
-    date: { type: Date, required: true },
+    orderDate: { type: Date, required: true },
     status: {
       type: String,
       enum: ["Placed", "Completed", "Cancelled"],

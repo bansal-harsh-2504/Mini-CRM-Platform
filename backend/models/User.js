@@ -11,6 +11,10 @@ const userSchema = new Schema(
       unique: true,
       required: true,
     },
+    vendor_reference: {
+      type: String,
+      required: true,
+    },
   },
   { timestamps: true }
 );

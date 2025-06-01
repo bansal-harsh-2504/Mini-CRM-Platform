@@ -16,9 +16,9 @@ const communicationLogSchema = new Schema(
     delivery_status: {
       type: String,
       enum: ["pending", "sent", "failed"],
-      required: true,
+      default: "pending",
     },
-    vender_reference: { type: String, required: true },
+    vendor_reference: { type: String, required: true },
   },
   { timestamps: true }
 );
