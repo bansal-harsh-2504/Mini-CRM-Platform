@@ -9,6 +9,8 @@ import authRoutes from "./routes/auth.routes.js";
 import aiRouter from "./services/ai.js";
 import vendorRouter from "./routes/vendor.routes.js";
 import { authenticateJWT } from "./middlewares/auth.js";
+import setupSwagger from "./docs/swagger.js";
+
 dotenv.config();
 
 const app = express();
@@ -33,6 +35,8 @@ app.use("/api/orders", authenticateJWT, orderRoutes);
 app.use("/api/campaigns", authenticateJWT, campaignRoutes);
 app.use("/api/ai", authenticateJWT, aiRouter);
 app.use("/api/vendor", vendorRouter);
+
+setupSwagger(app);
 
 // Root endpoint
 app.get("/", (req, res) => {
