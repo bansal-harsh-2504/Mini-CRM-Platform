@@ -11,7 +11,7 @@ const CampaignBuilder = () => {
   const [campaignName, setCampaignName] = useState("");
   const [audienceCount, setAudienceCount] = useState(0);
   const [error, setError] = useState("");
-  const [logic, setlogic] = useState("AND");
+  const [logic, setLogic] = useState("AND");
   const [rules, setRules] = useState([
     { metric: "totalSpend", operator: ">", value: "" },
   ]);
@@ -92,22 +92,20 @@ const CampaignBuilder = () => {
     if (createLoading) return;
     try {
       setCreateLoading(true);
-      const response = (
-        await axios.post(
-          `${import.meta.env.VITE_BASE_URL_BACKEND}/campaigns`,
-          {
-            name: campaignName,
-            rules,
-            objective,
+      await axios.post(
+        `${import.meta.env.VITE_BASE_URL_BACKEND}/campaigns`,
+        {
+          name: campaignName,
+          rules,
+          objective,
+        },
+        {
+          withCredentials: true,
+          headers: {
+            Authorization: `Bearer ${token}`,
           },
-          {
-            withCredentials: true,
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        )
-      ).data;
+        }
+      );
     } catch (error) {
       console.error("Error creating campaign:", error);
     } finally {
@@ -164,7 +162,7 @@ const CampaignBuilder = () => {
       <select
         className="border px-3 py-2 mb-4 rounded-md"
         value={logic}
-        onChange={(e) => setlogic(e.target.value)}
+        onChange={(e) => setLogic(e.target.value)}
       >
         <option value="AND">AND</option>
         <option value="OR">OR</option>
