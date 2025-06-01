@@ -146,7 +146,7 @@ const CampaignBuilder = () => {
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-6 mt-16 bg-white shadow-md rounded-md">
+    <div className="max-w-3xl mx-auto p-6 mt-30 bg-white shadow-md rounded-md">
       <h2 className="text-2xl font-semibold mb-6">Create Campaign</h2>
       <label className="block mb-2 font-medium">Campaign Name</label>
       <input

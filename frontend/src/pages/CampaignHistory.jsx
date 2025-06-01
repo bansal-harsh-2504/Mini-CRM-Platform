@@ -43,9 +43,9 @@ const CampaignHistory = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 mt-20 px-25">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Campaign History</h1>
+        <h1 className="text-2xl font-bold text-gray-700">Campaign History</h1>
         <div className="space-x-4 flex">
           <button
             className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 flex items-center gap-2 cursor-pointer"
@@ -54,7 +54,7 @@ const CampaignHistory = () => {
             {loading ? "Refreshing..." : "Refresh"}
           </button>
           <button
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2 bg-orange-400 text-white rounded-md hover:bg-orange-500 flex items-center gap-2 cursor-pointer"
             onClick={handleCreateCampaign}
           >
             <span>+</span>
@@ -65,7 +65,7 @@ const CampaignHistory = () => {
 
       {loading ? (
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
         </div>
       ) : campaigns.length === 0 ? (
         <p className="text-gray-500 text-center py-8">
