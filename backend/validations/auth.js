@@ -1,5 +1,7 @@
 import Joi from "joi";
 
-export default authSchema = Joi.object({
+const authSchema = Joi.object({
   credentials: Joi.string().required().label("Google Credentials"),
 });
+
+export default authSchema;

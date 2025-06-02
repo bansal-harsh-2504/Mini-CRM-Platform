@@ -1,6 +1,6 @@
 import { createContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import jwt_decode from "jwt-decode";
+import { jwtDecode } from "jwt-decode";
 
 export const AuthContext = createContext();
 
@@ -15,15 +15,25 @@ const AuthContextProvider = (props) => {
   useEffect(() => {
     const initializeAuth = async () => {
       setIsAuthLoading(true);
-      
+
       const storedToken = localStorage.getItem("jwt_token");
       const storedUser = localStorage.getItem("user");
 
       try {
         if (storedToken) {
-          jwt_decode(storedToken);
-          setToken(storedToken);
-          setLoggedIn(true);
+          const decodedToken = jwtDecode(storedToken);
+          const currentTime = Date.now() / 1000; // Convert to seconds
+
+          if (decodedToken.exp && decodedToken.exp > currentTime) {
+            setToken(storedToken);
+            setLoggedIn(true);
+          } else {
+            // Token has expired
+            setLoggedIn(false);
+            setToken(null);
+            setUser({});
+            localStorage.removeItem("jwt_token");
+          }
         }
 
         if (storedUser) {

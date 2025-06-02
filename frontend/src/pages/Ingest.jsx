@@ -85,7 +85,7 @@ const DataIngest = () => {
       );
       setJsonInput("[]");
     } catch (err) {
-      setError(err.response.data.message);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
