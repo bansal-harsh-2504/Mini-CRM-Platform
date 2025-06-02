@@ -1,5 +1,6 @@
 import Customer from "../models/Customer.js";
 import { ingestCustomersSchema } from "../validations/customer.js";
+import redis from "../services/redisClient.js";
 
 export const ingestCustomers = async (req, res) => {
   let customers = req.body.type;
@@ -12,25 +13,26 @@ export const ingestCustomers = async (req, res) => {
       message: error.details[0].message,
     });
   }
-
-  for (const cust of customers) {
-    if (!cust.email || !cust.name) {
-      return res.status(400).json({
-        success: false,
-        message: "Name and Email are required for all customers.",
-      });
-    }
-  }
-
   try {
-    const operations = customers.map((cust) => ({
-      updateOne: {
-        filter: { owner: req.userId, email: cust.email },
-        update: { $set: { ...cust, owner: req.userId } },
-        upsert: true,
-      },
-    }));
-    await Customer.bulkWrite(operations);
+    const pipeline = redis.pipeline();
+    for (const cust of customers) {
+      pipeline.xadd(
+        "customer_ingestion_stream",
+        "*",
+        "owner",
+        req.userId,
+        "email",
+        cust.email,
+        "name",
+        cust.name,
+        "phone",
+        cust.phone || "",
+        "customData",
+        JSON.stringify(cust.customData || {})
+      );
+    }
+    await pipeline.exec();
+
     res.status(200).json({
       success: true,
       message: `${customers.length} customers ingested`,

@@ -1,12 +1,11 @@
 import Campaign from "../models/Campaign.js";
 import Customer from "../models/Customer.js";
-import CommunicationLog from "../models/CommunicationLog.js";
 import parseRulesToMongoQuery from "../utils/parseRules.js";
 import {
   previewAudienceSchema,
   createCampaignSchema,
 } from "../validations/campaign.js";
-import axios from "axios";
+import redis from "../services/redisClient.js";
 
 export const getCampaignHistory = async (req, res) => {
   try {
@@ -51,18 +50,8 @@ export const createCampaign = async (req, res) => {
       .json({ success: false, message: error.details[0].message });
   }
 
-  const { name, rules, logic, objective } = req.body;
-
-  if (!name || !objective || !rules || !logic) {
-    return res.status(400).json({
-      success: false,
-      message: "Required fields: name, rules, logic, and objective",
-    });
-  }
-
-  const vendor_reference = req.vendor_reference;
-
   try {
+    const { name, rules, logic, objective } = req.body;
     const mongoQuery = await parseRulesToMongoQuery(rules, logic);
     const customers = await Customer.find(mongoQuery);
     const audienceSize = customers.length;
@@ -77,32 +66,35 @@ export const createCampaign = async (req, res) => {
       deliveryStats: { sent: 0, failed: 0 },
     });
 
-    for (const customer of customers) {
-      const personalizedMessage = `Hi ${customer.name}, ${objective}`;
-      const log = await CommunicationLog.create({
-        campaignId: campaign._id,
-        customerId: customer._id,
-        message: personalizedMessage,
-        vendor_reference,
-      });
-
-      await log.save();
-      try {
-        await axios.post(`${process.env.BASE_URL_BACKEND}/api/vendor/send`, {
-          campaignId: campaign._id,
-          customerId: customer._id,
-          personalizedMessage,
-          email: customer.email,
-        });
-      } catch (e) {
-        console.error("Error in create Campaign controller:", e.message);
-      }
-    }
-
-    campaign.status = "completed";
-    await campaign.save();
-
     res.status(201).json({ success: true, data: { campaign } });
+
+    (async () => {
+      try {
+        const pipeline = redis.pipeline();
+        for (const customer of customers) {
+          const personalizedMessage = `Hi ${customer.name}, ${objective}`;
+          pipeline.xadd(
+            "ingestion_stream",
+            "*",
+            "type",
+            "campaign",
+            "campaignId",
+            campaign._id.toString(),
+            "customerId",
+            customer._id.toString(),
+            "message",
+            personalizedMessage,
+            "email",
+            customer.email,
+            "vendor_reference",
+            req.vendor_reference
+          );
+        }
+        await pipeline.exec();
+      } catch (err) {
+        console.error("Error pushing campaign messages to Redis:", err);
+      }
+    })();
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -1,6 +1,6 @@
-import Order from "../models/Order.js";
 import Customer from "../models/Customer.js";
-import { ingestOrdersSchema } from "../validators/order.js";
+import { ingestOrdersSchema } from "../validations/order.js";
+import redis from "../services/redisClient.js";
 
 export const ingestOrders = async (req, res) => {
   let orders = req.body.type;
@@ -14,15 +14,6 @@ export const ingestOrders = async (req, res) => {
     });
   }
 
-  for (const order of orders) {
-    if (!order.email || !order.orderDate || !order.amount) {
-      return res.status(400).json({
-        success: false,
-        message: "Each order must have email and orderDate and amount",
-      });
-    }
-  }
-
   try {
     const emails = [...new Set(orders.map((o) => o.email))];
     const customers = await Customer.find({
@@ -34,35 +25,44 @@ export const ingestOrders = async (req, res) => {
     customers.forEach((cust) => {
       emailToCustomerId[cust.email] = cust._id;
     });
-
-    const operations = [];
-
+    const failedEmails = [];
+    const pipeline = redis.pipeline();
     for (const order of orders) {
       const customerId = emailToCustomerId[order.email];
       if (!customerId) {
-        return res.status(400).json({
-          success: false,
-          message: `Customer with email ${order.email} not found`,
-        });
+        failedEmails.push(order.email);
+        continue;
       }
-
-      operations.push({
-        updateOne: {
-          filter: { customerId, owner: req.userId },
-          update: {
-            $set: { ...order, customerId, owner: req.userId },
-          },
-          upsert: true,
-        },
+      pipeline.xadd(
+        "order_ingestion_stream",
+        "*",
+        "customerId",
+        customerId.toString(),
+        "owner",
+        req.userId.toString(),
+        "orderDate",
+        order.orderDate,
+        "amount",
+        order.amount.toString(),
+        "email",
+        order.email,
+        "items",
+        JSON.stringify(order.items || [])
+      );
+    }
+    await pipeline.exec();
+    if (failedEmails.length > 0) {
+      return res.status(207).json({
+        success: false,
+        message: `Some orders failed due to missing customers`,
+        failedEmails,
+      });
+    } else {
+      res.status(200).json({
+        success: true,
+        message: `${orders.length} orders ingested`,
       });
     }
-
-    await Order.bulkWrite(operations);
-
-    res.status(200).json({
-      success: true,
-      message: `${orders.length} orders ingested`,
-    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

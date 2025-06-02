@@ -1,8 +1,9 @@
 import User from "../models/User.js";
-import authSchema from "../validations/auth.validation.js";
+import authSchema from "../validations/auth.js";
 import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
+
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
