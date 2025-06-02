@@ -45,6 +45,13 @@ const DataIngest = () => {
   };
 
   const handleSubmit = async () => {
+    setAlertMessage("");
+    setError("");
+    if (!token) {
+      setError("You must be logged in to import data");
+      return;
+    }
+    if (loading) return;
     if (!jsonInput.trim()) {
       setError("Please enter valid JSON data");
       return;

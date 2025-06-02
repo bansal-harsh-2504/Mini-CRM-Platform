@@ -18,12 +18,16 @@ const CampaignHistory = () => {
   const { token } = useContext(AuthContext);
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
   const navigate = useNavigate();
 
   const fetchCampaigns = async () => {
+    setErrorMessage(null);
     if (!token) {
+      setErrorMessage("You must be logged in to view campaigns.");
       return;
     }
+    if (loading) return;
     setLoading(true);
     try {
       const response = (
@@ -50,6 +54,12 @@ const CampaignHistory = () => {
   }, [token]);
 
   const handleCreateCampaign = () => {
+    setErrorMessage(null);
+    if (loading) return;
+    if (!token) {
+      setErrorMessage("You must be logged in to create a campaign.");
+      return;
+    }
     navigate("/campaigns/new");
   };
 
@@ -86,6 +96,11 @@ const CampaignHistory = () => {
             <p className="text-slate-600 mt-1">
               Manage and track your email marketing campaigns
             </p>
+            {errorMessage && (
+              <div className="fixed bottom-4 right-4 z-50 bg-red-100 border border-red-300 text-red-800 px-4 py-2 rounded shadow-lg">
+                {errorMessage}
+              </div>
+            )}
           </div>
           <div className="flex gap-3">
             <button

@@ -1,17 +1,9 @@
 import { GoogleLogin } from "@react-oauth/google";
 import { useEffect, useState, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
-import { AiOutlineMail, AiOutlineArrowRight } from "react-icons/ai";
+import { AiOutlineMail } from "react-icons/ai";
 import { MdOutlineShield } from "react-icons/md";
-import {
-  FaUsers,
-  FaChartLine,
-  FaGoogle,
-  FaCheckCircle,
-  FaBolt,
-  FaCode,
-  FaStar,
-} from "react-icons/fa";
+import { FaUsers, FaChartLine, FaCheckCircle, FaBolt } from "react-icons/fa";
 import axios from "axios";
 
 const Auth = () => {

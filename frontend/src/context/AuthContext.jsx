@@ -5,21 +5,32 @@ export const AuthContext = createContext();
 
 const AuthContextProvider = (props) => {
   const [token, setToken] = useState(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [showWelcomeMessage, setShowWelcomeMessage] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const navigate = useNavigate();
   const [user, setUser] = useState({});
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("jwt_token");
-    if (storedToken) {
-      setToken(storedToken);
-      setLoggedIn(true);
-    }
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+    const initializeAuth = async () => {
+      setIsAuthLoading(true);
+
+      const storedToken = localStorage.getItem("jwt_token");
+      const storedUser = localStorage.getItem("user");
+
+      if (storedToken) {
+        setToken(storedToken);
+        setLoggedIn(true);
+      }
+
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+
+      setTimeout(() => setIsAuthLoading(false), 0);
+    };
+
+    initializeAuth();
   }, []);
 
   const value = {
@@ -32,6 +43,8 @@ const AuthContextProvider = (props) => {
     setShowWelcomeMessage,
     user,
     setUser,
+    isAuthLoading,
+    setIsAuthLoading,
   };
 
   return (

@@ -1,9 +1,10 @@
-import { useState, useContext } from "react";
+import { useState, useContext, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import axios from "axios";
 
 const CampaignBuilder = () => {
-  const { token } = useContext(AuthContext);
+  const { token, isAuthLoading } = useContext(AuthContext);
   const [aiSuggestions, setAiSuggestions] = useState([]);
   const [aiError, setAiError] = useState("");
   const [objective, setObjective] = useState("");
@@ -18,6 +19,7 @@ const CampaignBuilder = () => {
   const [aiLoading, setAiLoading] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleRuleChange = (index, field, value) => {
     const updatedRules = [...rules];
@@ -151,6 +153,13 @@ const CampaignBuilder = () => {
       setAiLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!isAuthLoading && !token) {
+      navigate("/campaigns", { replace: true });
+      return;
+    }
+  }, [isAuthLoading, token, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100 py-8 px-4">
