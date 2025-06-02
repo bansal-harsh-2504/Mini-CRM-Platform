@@ -105,13 +105,6 @@ async function handleCampaignMessage({
       console.error("Error in create Campaign stream:", e.message);
       return;
     }
-
-    const campaign = await Campaign.findById(campaignId);
-    const total = campaign.deliveryStats.sent + campaign.deliveryStats.failed;
-    if (total >= campaign.audienceSize) {
-      campaign.status = "completed";
-      await campaign.save();
-    }
   } catch (err) {
     console.error("Error handling campaign message:", err.message);
   }
@@ -339,8 +332,16 @@ async function handleLogUpdate({ campaignId, customerId, delivery_status }) {
       },
     });
 
+    const updatedCampaign = await Campaign.findById(campaignId);
+    const total = (updatedCampaign.deliveryStats.sent || 0) + (updatedCampaign.deliveryStats.failed || 0);
+    
+    if (total >= updatedCampaign.audienceSize && updatedCampaign.status !== 'completed') {
+      console.log(`Campaign ${campaignId} completed. Total deliveries: ${total}, Audience size: ${updatedCampaign.audienceSize}`);
+      await Campaign.findByIdAndUpdate(campaignId, { status: 'completed' });
+    }
+
     console.log(
-      `Updated log for customer ${customerId} with status ${delivery_status}`
+      `Updated log for customer ${customerId} with status ${delivery_status}. Progress: ${total}/${updatedCampaign.audienceSize}`
     );
   } catch (err) {
     console.error("Error in handleLogUpdate:", err.message);

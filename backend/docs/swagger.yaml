@@ -5,8 +5,8 @@ info:
   description: API docs for Mini CRM
 
 servers:
-  - url: http://localhost:3000
-  - url: http://localhost:8000
+  - url: https://mini-crm-platform-xeno.vercel.app
+  - url: https://mini-crm-plaform-qhsk.onrender.com
 
 security:
   - bearerAuth: []
