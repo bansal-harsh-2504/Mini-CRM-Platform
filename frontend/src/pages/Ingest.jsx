@@ -1,36 +1,70 @@
-import React, { useContext, useState } from "react";
+import { useContext, useState } from "react";
 import axios from "axios";
 import { AuthContext } from "../context/AuthContext";
+import {
+  FaUpload,
+  FaUsers,
+  FaShoppingCart,
+  FaCode,
+  FaCheckCircle,
+  FaExclamationCircle,
+  FaChevronDown,
+  FaFileAlt,
+  FaSpinner,
+  FaInfoCircle,
+} from "react-icons/fa";
 
-const Ingest = () => {
+const DataIngest = () => {
   const [type, setType] = useState("customers");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [jsonInput, setJsonInput] = useState("[]");
+  const [isSchemaOpen, setIsSchemaOpen] = useState(false);
+  const [alertMessage, setAlertMessage] = useState("");
   const { token } = useContext(AuthContext);
 
-  const handleToggle = (newType) => {
+  const handleTypeChange = (newType) => {
     setError("");
     setType(newType);
     setJsonInput("[]");
   };
 
-  const handleSubmit = async () => {
+  const validateJson = (input) => {
     try {
-      if (!jsonInput.trim()) {
-        setError("Please enter valid JSON data.");
-        return;
-      }
-      setLoading(true);
-      const parsed = JSON.parse(jsonInput.trim());
+      const parsed = JSON.parse(input.trim());
       if (!Array.isArray(parsed)) {
-        setError("Please enter a valid JSON array.");
-        return;
+        return { valid: false, error: "Data must be a JSON array" };
       }
+      if (parsed.length === 0) {
+        return { valid: false, error: "Array cannot be empty" };
+      }
+      return { valid: true, data: parsed };
+    } catch (err) {
+      return { valid: false, error: "Invalid JSON format" };
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!jsonInput.trim()) {
+      setError("Please enter valid JSON data");
+      return;
+    }
+
+    const validation = validateJson(jsonInput);
+    if (!validation.valid) {
+      setError(validation.error);
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    setAlertMessage("");
+
+    try {
       await axios.post(
         `${import.meta.env.VITE_BASE_URL_BACKEND}/${type}`,
         {
-          type: parsed,
+          type: validation.data,
         },
         {
           headers: {
@@ -39,26 +73,19 @@ const Ingest = () => {
           withCredentials: true,
         }
       );
-
-      alert(
-        `${type[0].toUpperCase() + type.slice(1)} data ingested successfully`
+      setAlertMessage(
+        `${validation.data.length} ${type} record(s) ingested successfully`
       );
+      setJsonInput("[]");
     } catch (err) {
-      console.error(err);
-      setError("Invalid JSON or ingestion failed.");
+      setError(err.response.data.message);
     } finally {
       setLoading(false);
-      setJsonInput("[]");
     }
   };
 
   const schema = {
-    customers: [
-      {
-        name: "John Doe",
-        email: "john@example.com",
-      },
-    ],
+    customers: [{ name: "John Doe", email: "john@example.com" }],
     orders: [
       {
         email: "john@example.com",
@@ -69,59 +96,195 @@ const Ingest = () => {
     ],
   };
 
+  const getTypeIcon = (dataType) => {
+    return dataType === "customers" ? (
+      <FaUsers className="h-4 w-4" />
+    ) : (
+      <FaShoppingCart className="h-4 w-4" />
+    );
+  };
+
+  const jsonValidation = validateJson(jsonInput);
+  const recordCount = jsonValidation.valid ? jsonValidation.data.length : 0;
+
   return (
-    <div className="mt-20 p-6 max-w-4xl mx-auto">
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center space-x-2 relative group">
-          <h2 className="text-2xl font-semibold text-gray-700">
-            {type === "customers" ? "Customer Ingestion" : "Order Ingestion"}
-          </h2>
-          <div className="w-5 h-5 flex items-center justify-center bg-gray-300 text-sm font-bold rounded-full cursor-pointer relative">
-            ?
-            <div className="absolute top-7 left-0 z-10 w-96 p-3 bg-white border border-gray-300 rounded shadow-lg text-xs font-mono opacity-0 group-hover:opacity-100 transition-opacity whitespace-pre-wrap">
-              {JSON.stringify(schema[type], null, 2)}
-              {type === "orders" && "\n\nNote: 'items' is optional."}
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 p-6 pt-25">
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div className="text-center space-y-4">
+          <div className="flex items-center justify-center gap-3">
+            <div className="h-12 w-12 bg-orange-500 rounded-lg flex items-center justify-center shadow-lg">
+              <FaUpload className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-800">
+                Data Ingestion
+              </h1>
+              <p className="text-slate-600">
+                Import customer and order data into your system
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="space-x-2">
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="mb-2 text-slate-800 font-semibold flex items-center gap-2">
+            <FaFileAlt />
+            Select Data Type
+          </div>
+          <div className="flex gap-4">
+            <button
+              onClick={() => handleTypeChange("customers")}
+              className={`cursor-pointer px-4 py-2 rounded font-medium ${
+                type === "customers"
+                  ? "bg-orange-500 text-white"
+                  : "bg-orange-100 text-orange-700 hover:bg-orange-200"
+              }`}
+            >
+              <FaUsers className="inline mr-1" />
+              Customers
+            </button>
+            <button
+              onClick={() => handleTypeChange("orders")}
+              className={`cursor-pointer px-4 py-2 rounded font-medium ${
+                type === "orders"
+                  ? "bg-orange-500 text-white"
+                  : "bg-orange-100 text-orange-700 hover:bg-orange-200"
+              }`}
+            >
+              <FaShoppingCart className="inline mr-1" />
+              Orders
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow">
           <button
-            className={`cursor-pointer px-4 py-2 rounded ${
-              type === "customers" ? "bg-orange-400 text-white" : "bg-gray-200"
-            }`}
-            onClick={() => handleToggle("customers")}
+            onClick={() => setIsSchemaOpen(!isSchemaOpen)}
+            className="cursor-pointer flex justify-between items-center w-full text-left"
           >
-            Customers
+            <div className="flex items-center gap-2 font-semibold text-slate-800">
+              <FaCode />
+              Expected JSON Schema
+              <span className="bg-orange-100 text-orange-800 text-xs px-2 py-0.5 rounded-full">
+                {type}
+              </span>
+            </div>
+            <FaChevronDown
+              className={`transition-transform ${
+                isSchemaOpen ? "rotate-180" : ""
+              }`}
+            />
           </button>
-          <button
-            className={`cursor-pointer px-4 py-2 rounded ${
-              type === "orders" ? "bg-orange-500 text-white" : "bg-gray-200"
-            }`}
-            onClick={() => handleToggle("orders")}
-          >
-            Orders
-          </button>
+          {isSchemaOpen && (
+            <div className="mt-4 bg-orange-900 text-orange-50 p-4 rounded font-mono text-sm">
+              <pre className="selection:bg-orange-200 selection:text-gray-600">
+                {JSON.stringify(schema[type], null, 2)}
+              </pre>
+              {type === "orders" && (
+                <div className="mt-2 text-orange-200 flex items-center gap-2">
+                  <FaInfoCircle />
+                  Note: The 'items' field is optional for order records.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-slate-800 font-semibold">
+              {getTypeIcon(type)}
+              JSON Data Input
+            </div>
+            {jsonValidation.valid && recordCount > 0 && (
+              <span className="text-green-600 text-sm flex items-center gap-1">
+                <FaCheckCircle />
+                {recordCount} record{recordCount !== 1 ? "s" : ""} ready
+              </span>
+            )}
+          </div>
+          <textarea
+            rows={12}
+            className="w-full border border-gray-400 p-3 rounded font-mono text-sm"
+            placeholder={`Paste JSON array of ${type}s here`}
+            value={jsonInput}
+            onChange={(e) => {
+              setJsonInput(e.target.value);
+              setError("");
+              setAlertMessage("");
+            }}
+          />
+          {error && (
+            <div className="text-red-600 flex items-center gap-2 bg-red-100 p-2 rounded text-sm">
+              <FaExclamationCircle />
+              {error}
+            </div>
+          )}
+          {alertMessage && (
+            <div className="text-green-700 bg-green-100 p-2 rounded text-sm flex items-center gap-2">
+              <FaCheckCircle />
+              {alertMessage}
+            </div>
+          )}
+          <div className="flex justify-between items-center">
+            <div className="text-sm">
+              {jsonInput.trim() === "[]" ? (
+                "Enter your JSON data to get started"
+              ) : jsonValidation.valid ? (
+                <span className="text-green-600 flex items-center gap-1">
+                  <FaCheckCircle />
+                  Ready to import {recordCount} record
+                  {recordCount !== 1 ? "s" : ""}
+                </span>
+              ) : (
+                <span className="text-red-600 flex items-center gap-1">
+                  <FaExclamationCircle />
+                  Invalid JSON format
+                </span>
+              )}
+            </div>
+            <button
+              onClick={handleSubmit}
+              disabled={loading || !jsonValidation.valid || recordCount === 0}
+              className="disabled:cursor-not-allowed cursor-pointer bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <FaSpinner className="animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <FaUpload />
+                  Import {type}
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="flex items-start gap-3">
+            <div className="h-8 w-8 bg-orange-200 rounded-lg flex items-center justify-center">
+              <FaInfoCircle className="text-orange-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-800">
+                Import Guidelines
+              </h3>
+              <ul className="list-disc ml-5 text-sm text-slate-600 mt-1 space-y-1">
+                <li>Data must be in valid JSON array format</li>
+                <li>Each record should follow the expected schema structure</li>
+                <li>Email addresses must be valid and unique for customers</li>
+                <li>Order dates should be in YYYY-MM-DD format</li>
+                <li>Large datasets may take a few moments to process</li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
-
-      <textarea
-        rows={12}
-        className="w-full border border-gray-400 p-3 rounded font-mono text-sm"
-        placeholder={`Paste JSON array of ${type}s here`}
-        value={jsonInput}
-        onChange={(e) => setJsonInput(e.target.value)}
-      />
-
-      <button
-        className="cursor-pointer mt-4 px-6 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-        onClick={handleSubmit}
-      >
-        {loading ? "Submitting..." : "Submit"}
-      </button>
-      {error && <div className="mt-4 text-red-600">{error}</div>}
     </div>
   );
 };
 
-export default Ingest;
+export default DataIngest;
