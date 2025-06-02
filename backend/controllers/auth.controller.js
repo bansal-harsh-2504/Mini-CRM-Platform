@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import authSchema from "../validations/auth.validation.js";
 import { OAuth2Client } from "google-auth-library";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
@@ -8,10 +9,18 @@ const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const oauth2Client = new OAuth2Client(CLIENT_ID, CLIENT_SECRET);
 
 export const authenticateUser = async (req, res) => {
+  const { error } = authSchema.validate(req.body);
+
+  if (error) {
+    return res.status(400).json({ message: error.details[0].message });
+  }
+
   const { credentials } = req.body;
+
   if (!credentials) {
     return res.status(400).json({ message: "No credentials provided" });
   }
+
   try {
     const ticket = await oauth2Client.verifyIdToken({
       idToken: credentials,

@@ -2,6 +2,10 @@ import Campaign from "../models/Campaign.js";
 import Customer from "../models/Customer.js";
 import CommunicationLog from "../models/CommunicationLog.js";
 import parseRulesToMongoQuery from "../utils/parseRules.js";
+import {
+  previewAudienceSchema,
+  createCampaignSchema,
+} from "../validations/campaign.js";
 import axios from "axios";
 
 export const getCampaignHistory = async (req, res) => {
@@ -16,6 +20,13 @@ export const getCampaignHistory = async (req, res) => {
 };
 
 export const previewAudienceSize = async (req, res) => {
+  const { error } = previewAudienceSchema.validate(req.body);
+  if (error) {
+    return res
+      .status(400)
+      .json({ success: false, message: error.details[0].message });
+  }
+
   const { rules, logic } = req.body;
   if (!rules || !logic) {
     return res.status(400).json({
@@ -33,6 +44,13 @@ export const previewAudienceSize = async (req, res) => {
 };
 
 export const createCampaign = async (req, res) => {
+  const { error } = createCampaignSchema.validate(req.body);
+  if (error) {
+    return res
+      .status(400)
+      .json({ success: false, message: error.details[0].message });
+  }
+
   const { name, rules, logic, objective } = req.body;
 
   if (!name || !objective || !rules || !logic) {

@@ -1,8 +1,19 @@
 import Campaign from "../models/Campaign.js";
 import CommunicationLog from "../models/CommunicationLog.js";
+import {
+  simulateDeliverySchema,
+  updateLogSchema,
+} from "../validators/delivery.js";
 import axios from "axios";
 
 export const simulateDelivery = async (req, res) => {
+  const { error } = simulateDeliverySchema.validate(req.body);
+  if (error) {
+    return res
+      .status(400)
+      .json({ success: false, message: error.details[0].message });
+  }
+
   const { campaignId, customerId, personalizedMessage, email } = req.body;
   const isSuccess = Math.random() < 0.9;
 
@@ -31,6 +42,13 @@ export const simulateDelivery = async (req, res) => {
 };
 
 export const updateLog = async (req, res) => {
+  const { error } = updateLogSchema.validate(req.body);
+  if (error) {
+    return res
+      .status(400)
+      .json({ success: false, message: error.details[0].message });
+  }
+
   const { campaignId, customerId, delivery_status } = req.body;
 
   if (!campaignId || !customerId || !delivery_status) {

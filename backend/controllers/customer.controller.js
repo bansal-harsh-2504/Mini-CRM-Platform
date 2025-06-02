@@ -1,8 +1,17 @@
 import Customer from "../models/Customer.js";
+import { ingestCustomersSchema } from "../validations/customer.js";
 
 export const ingestCustomers = async (req, res) => {
   let customers = req.body.type;
   if (!Array.isArray(customers)) customers = [customers];
+
+  const { error } = ingestCustomersSchema.validate(customers);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.details[0].message,
+    });
+  }
 
   for (const cust of customers) {
     if (!cust.email || !cust.name) {

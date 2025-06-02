@@ -1,9 +1,18 @@
 import Order from "../models/Order.js";
 import Customer from "../models/Customer.js";
+import { ingestOrdersSchema } from "../validators/order.js";
 
 export const ingestOrders = async (req, res) => {
   let orders = req.body.type;
   if (!Array.isArray(orders)) orders = [orders];
+
+  const { error } = ingestOrdersSchema.validate(orders);
+  if (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.details[0].message,
+    });
+  }
 
   for (const order of orders) {
     if (!order.email || !order.orderDate || !order.amount) {
