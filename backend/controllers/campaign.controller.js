@@ -1,6 +1,8 @@
 import Campaign from "../models/Campaign.js";
 import Customer from "../models/Customer.js";
+import CommunicationLog from "../models/CommunicationLog.js";
 import parseRulesToMongoQuery from "../utils/parseRules.js";
+import axios from "axios";
 
 export const getCampaignHistory = async (req, res) => {
   try {
@@ -22,7 +24,7 @@ export const previewAudienceSize = async (req, res) => {
     });
   }
   try {
-    const mongoQuery = parseRulesToMongoQuery(rules, logic);
+    const mongoQuery = await parseRulesToMongoQuery(rules, logic);
     const count = await Customer.countDocuments(mongoQuery);
     res.status(200).json({ success: true, data: { count } });
   } catch (error) {
@@ -40,10 +42,10 @@ export const createCampaign = async (req, res) => {
     });
   }
 
-  const vendor_reference = req.user.vendor_reference;
+  const vendor_reference = req.vendor_reference;
 
   try {
-    const mongoQuery = parseRulesToMongoQuery(rules, logic);
+    const mongoQuery = await parseRulesToMongoQuery(rules, logic);
     const customers = await Customer.find(mongoQuery);
     const audienceSize = customers.length;
 
@@ -68,7 +70,7 @@ export const createCampaign = async (req, res) => {
 
       await log.save();
       try {
-        await axios.post(`${process.env.BASE_URL}/api/vendor/send`, {
+        await axios.post(`${process.env.BASE_URL_BACKEND}/api/vendor/send`, {
           campaignId: campaign._id,
           customerId: customer._id,
           personalizedMessage,

@@ -1,5 +1,6 @@
 import Campaign from "../models/Campaign.js";
-import CommunicationLog from "../models/communicationLog.js";
+import CommunicationLog from "../models/CommunicationLog.js";
+import axios from "axios";
 
 export const simulateDelivery = async (req, res) => {
   const { campaignId, customerId, personalizedMessage, email } = req.body;
@@ -7,7 +8,7 @@ export const simulateDelivery = async (req, res) => {
 
   setTimeout(async () => {
     try {
-      await axios.post(`${process.env.BASE_URL}/api/delivery/receipt`, {
+      await axios.post(`${process.env.BASE_URL_BACKEND}/api/vendor/receipt`, {
         campaignId,
         customerId,
         delivery_status: isSuccess ? "sent" : "failed",

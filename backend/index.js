@@ -17,7 +17,10 @@ const app = express();
 
 app.use(
   cors({
-    origin: [`${process.env.BASE_URL_FRONTEND}`],
+    origin: [
+      `${process.env.BASE_URL_FRONTEND}`,
+      `${process.env.BASE_URL_BACKEND}`,
+    ],
     credentials: true,
   })
 );
