@@ -217,6 +217,7 @@ async function handleOrderIngestion({
       $inc: {
         totalSpend: Number(amount),
       },
+      lastPurchased: orderDate,
     });
     console.log(`Processed order for ${email}`);
   } catch (err) {
@@ -334,7 +335,7 @@ async function handleLogUpdate({ campaignId, customerId, delivery_status }) {
 
     const updatedCampaign = await Campaign.findById(campaignId);
     const total = (updatedCampaign.deliveryStats.sent || 0) + (updatedCampaign.deliveryStats.failed || 0);
-    
+
     if (total >= updatedCampaign.audienceSize && updatedCampaign.status !== 'completed') {
       console.log(`Campaign ${campaignId} completed. Total deliveries: ${total}, Audience size: ${updatedCampaign.audienceSize}`);
       await Campaign.findByIdAndUpdate(campaignId, { status: 'completed' });

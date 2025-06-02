@@ -22,7 +22,10 @@ const customerSchema = new Schema(
       type: Number,
       default: 0,
     },
-    lastPurchased: Date,
+    lastPurchased: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
