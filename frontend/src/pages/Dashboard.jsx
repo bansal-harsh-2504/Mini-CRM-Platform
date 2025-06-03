@@ -57,7 +57,7 @@ const Dashboard = () => {
               </Link>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 pt-8">
+            <div className="grid grid-cols-3 gap-4 pt-8 -ml-18">
               {[
                 { value: "10K+", label: "Customers" },
                 { value: "95%", label: "Delivery Rate" },

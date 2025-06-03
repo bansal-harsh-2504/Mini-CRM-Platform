@@ -115,6 +115,16 @@ const CampaignBuilder = () => {
           },
         }
       );
+      navigate("/campaigns", { replace: true });
+      setCampaignName("");
+      setRules([{ metric: "totalSpend", operator: ">", value: "" }]);
+      setObjective("");
+      setAudienceCount(0);
+      setAiSuggestions([]);
+      setSelectedSuggestionIndex(null);
+      setLogic("AND");
+      setAiError("");
+      setError("");
     } catch (error) {
       console.error("Error creating campaign:", error);
     } finally {
