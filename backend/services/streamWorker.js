@@ -3,12 +3,7 @@ import CommunicationLog from "../models/CommunicationLog.js";
 import Campaign from "../models/Campaign.js";
 import Customer from "../models/Customer.js";
 import Order from "../models/Order.js";
-import axios from "axios";
 import connectToDB from "../config/db.js";
-
-const CAMPAIGN_STREAM_KEY = "ingestion_stream";
-const CAMPAIGN_GROUP_NAME = "campaign_group";
-const CAMPAIGN_CONSUMER_NAME = "worker_campaign_1";
 
 const CUSTOMER_STREAM_KEY = "customer_ingestion_stream";
 const CUSTOMER_GROUP_NAME = "customer_group";
@@ -18,13 +13,12 @@ const ORDER_STREAM_KEY = "order_ingestion_stream";
 const ORDER_GROUP_NAME = "order_group";
 const ORDER_CONSUMER_NAME = "worker_order_1";
 
-const DELIVERY_STREAM_KEY = "delivery_simulation_stream";
-const DELIVERY_GROUP_NAME = "delivery_group";
-const DELIVERY_CONSUMER_NAME = "worker_delivery_1";
-
 const LOG_STREAM_KEY = "log_update_stream";
 const LOG_GROUP_NAME = "log_group";
 const LOG_CONSUMER_NAME = "worker_log_1";
+
+const BATCH_SIZE = 100;
+const BATCH_TIMEOUT = 5000;
 
 connectToDB();
 
@@ -47,69 +41,6 @@ function parseFields(fields) {
   return obj;
 }
 
-async function processCampaignMessages() {
-  while (true) {
-    try {
-      const response = await redis.xreadgroup(
-        "GROUP",
-        CAMPAIGN_GROUP_NAME,
-        CAMPAIGN_CONSUMER_NAME,
-        "BLOCK",
-        5000, // wait up to 5s
-        "COUNT",
-        10,
-        "STREAMS",
-        CAMPAIGN_STREAM_KEY,
-        ">"
-      );
-
-      if (!response) continue;
-
-      for (const [, messages] of response) {
-        for (const [id, fields] of messages) {
-          const data = parseFields(fields);
-          await handleCampaignMessage(data);
-          await redis.xack(CAMPAIGN_STREAM_KEY, CAMPAIGN_GROUP_NAME, id);
-        }
-      }
-    } catch (err) {
-      console.error("Stream read error:", err);
-    }
-  }
-}
-
-async function handleCampaignMessage({
-  campaignId,
-  customerId,
-  message,
-  email,
-  vendor_reference,
-}) {
-  try {
-    const log = await CommunicationLog.create({
-      campaignId,
-      customerId,
-      message,
-      vendor_reference,
-    });
-
-    await log.save();
-    try {
-      await axios.post(`${process.env.BASE_URL_BACKEND}/api/vendor/send`, {
-        campaignId,
-        customerId,
-        personalizedMessage: message,
-        email,
-      });
-    } catch (e) {
-      console.error("Error in create Campaign stream:", e.message);
-      return;
-    }
-  } catch (err) {
-    console.error("Error handling campaign message:", err.message);
-  }
-}
-
 async function processCustomerMessages() {
   while (true) {
     try {
@@ -118,7 +49,7 @@ async function processCustomerMessages() {
         CUSTOMER_GROUP_NAME,
         CUSTOMER_CONSUMER_NAME,
         "BLOCK",
-        5000,
+        1000,
         "COUNT",
         10,
         "STREAMS",
@@ -162,6 +93,7 @@ async function handleCustomerIngestion({
       { $set: parsedData },
       { upsert: true }
     );
+    console.log("Customer ingested successfully:", email);
   } catch (err) {
     console.error("Error processing customer ingestion:", err.message);
   }
@@ -175,7 +107,7 @@ async function processOrderMessages() {
         ORDER_GROUP_NAME,
         ORDER_CONSUMER_NAME,
         "BLOCK",
-        5000,
+        1000,
         "COUNT",
         10,
         "STREAMS",
@@ -225,66 +157,95 @@ async function handleOrderIngestion({
   }
 }
 
-async function processDeliverySimulations() {
-  while (true) {
-    try {
-      const response = await redis.xreadgroup(
-        "GROUP",
-        DELIVERY_GROUP_NAME,
-        DELIVERY_CONSUMER_NAME,
-        "BLOCK",
-        5000,
-        "COUNT",
-        10,
-        "STREAMS",
-        DELIVERY_STREAM_KEY,
-        ">"
-      );
+async function processLogUpdates() {
+  let batch = [];
+  let batchTimeout = null;
 
-      if (!response) continue;
+  const processBatch = async (logs) => {
+    if (logs.length === 0) return;
 
-      for (const [, messages] of response) {
-        for (const [id, fields] of messages) {
-          const data = parseFields(fields);
-          await handleDeliverySimulation(data);
-          await redis.xack(DELIVERY_STREAM_KEY, DELIVERY_GROUP_NAME, id);
-        }
-      }
-    } catch (err) {
-      console.error("Error processing delivery simulation:", err.message);
-    }
-  }
-}
+    console.log(`Processing batch of ${logs.length} delivery logs`);
+    const updates = [];
+    const campaignUpdates = new Map();
 
-async function handleDeliverySimulation({
-  campaignId,
-  customerId,
-  personalizedMessage,
-  email,
-}) {
-  const isSuccess = Math.random() < 0.9;
-
-  setTimeout(async () => {
-    try {
-      await axios.post(`${process.env.BASE_URL_BACKEND}/api/vendor/receipt`, {
+    for (const log of logs) {
+      const {
         campaignId,
         customerId,
-        delivery_status: isSuccess ? "sent" : "failed",
+        delivery_status,
+        message,
+        vendor_reference,
+      } = log.data;
+      updates.push({
+        updateOne: {
+          filter: { campaignId, customerId },
+          update: {
+            $set: {
+              delivery_status,
+              message,
+              vendor_reference,
+            },
+          },
+        },
       });
 
-      if (!isSuccess) {
-        console.log(`Simulated failure for ${email}`);
-        return;
+      if (!campaignUpdates.has(campaignId)) {
+        campaignUpdates.set(campaignId, {
+          sent: 0,
+          failed: 0,
+        });
+      }
+      const stats = campaignUpdates.get(campaignId);
+      if (delivery_status === "sent" || delivery_status === "failed") {
+        stats[delivery_status]++;
+      }
+    }
+
+    try {
+      if (updates.length > 0) {
+        await CommunicationLog.bulkWrite(updates);
       }
 
-      console.log(`Simulated email to ${email}: "${personalizedMessage}"`);
-    } catch (err) {
-      console.error("Error sending simulated delivery receipt:", err.message);
-    }
-  }, 500);
-}
+      for (const [campaignId, stats] of campaignUpdates) {
+        const updateObj = {};
+        if (stats.sent) updateObj["deliveryStats.sent"] = stats.sent;
+        if (stats.failed) updateObj["deliveryStats.failed"] = stats.failed;
 
-async function processLogUpdates() {
+        const campaign = await Campaign.findByIdAndUpdate(
+          campaignId,
+          { $inc: updateObj },
+          { new: true }
+        );
+
+        if (campaign) {
+          const total =
+            campaign.deliveryStats.sent + campaign.deliveryStats.failed;
+          if (
+            total >= campaign.audienceSize &&
+            campaign.status !== "completed"
+          ) {
+            await Campaign.findByIdAndUpdate(campaignId, {
+              status: "completed",
+            });
+            console.log(
+              `Campaign ${campaignId} completed. Final stats - Sent: ${campaign.deliveryStats.sent}, Failed: ${campaign.deliveryStats.failed}`
+            );
+          }
+        }
+      }
+
+      for (const log of logs) {
+        await redis.xack(LOG_STREAM_KEY, LOG_GROUP_NAME, log.id);
+      }
+
+      console.log(
+        `Successfully processed batch of ${logs.length} delivery logs`
+      );
+    } catch (err) {
+      console.error("Error processing batch:", err);
+    }
+  };
+
   while (true) {
     try {
       const response = await redis.xreadgroup(
@@ -292,9 +253,9 @@ async function processLogUpdates() {
         LOG_GROUP_NAME,
         LOG_CONSUMER_NAME,
         "BLOCK",
-        5000,
+        1000,
         "COUNT",
-        10,
+        BATCH_SIZE,
         "STREAMS",
         LOG_STREAM_KEY,
         ">"
@@ -304,61 +265,39 @@ async function processLogUpdates() {
 
       for (const [, messages] of response) {
         for (const [id, fields] of messages) {
-          const data = parseFields(fields);
-          await handleLogUpdate(data);
-          await redis.xack(LOG_STREAM_KEY, LOG_GROUP_NAME, id);
+          batch.push({
+            id,
+            data: parseFields(fields),
+          });
+
+          if (batch.length >= BATCH_SIZE) {
+            clearTimeout(batchTimeout);
+            const currentBatch = [...batch];
+            batch = [];
+            await processBatch(currentBatch);
+          } else if (batch.length > 0 && !batchTimeout) {
+            batchTimeout = setTimeout(async () => {
+              const currentBatch = [...batch];
+              batch = [];
+              batchTimeout = null;
+              await processBatch(currentBatch);
+            }, BATCH_TIMEOUT);
+          }
         }
       }
     } catch (err) {
-      console.error("Error processing log update:", err.message);
+      console.error("Error processing log updates:", err);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
-  }
-}
-
-async function handleLogUpdate({ campaignId, customerId, delivery_status }) {
-  try {
-    const log = await CommunicationLog.findOneAndUpdate(
-      { campaignId, customerId },
-      { delivery_status }
-    );
-
-    if (!log) {
-      console.warn("Log not found for:", campaignId, customerId);
-      return;
-    }
-
-    await Campaign.findByIdAndUpdate(campaignId, {
-      $inc: {
-        [`deliveryStats.${delivery_status}`]: 1,
-      },
-    });
-
-    const updatedCampaign = await Campaign.findById(campaignId);
-    const total = (updatedCampaign.deliveryStats.sent || 0) + (updatedCampaign.deliveryStats.failed || 0);
-
-    if (total >= updatedCampaign.audienceSize && updatedCampaign.status !== 'completed') {
-      console.log(`Campaign ${campaignId} completed. Total deliveries: ${total}, Audience size: ${updatedCampaign.audienceSize}`);
-      await Campaign.findByIdAndUpdate(campaignId, { status: 'completed' });
-    }
-
-    console.log(
-      `Updated log for customer ${customerId} with status ${delivery_status}. Progress: ${total}/${updatedCampaign.audienceSize}`
-    );
-  } catch (err) {
-    console.error("Error in handleLogUpdate:", err.message);
   }
 }
 
 (async () => {
-  await initializeGroup(CAMPAIGN_STREAM_KEY, CAMPAIGN_GROUP_NAME);
   await initializeGroup(CUSTOMER_STREAM_KEY, CUSTOMER_GROUP_NAME);
   await initializeGroup(ORDER_STREAM_KEY, ORDER_GROUP_NAME);
-  await initializeGroup(DELIVERY_STREAM_KEY, DELIVERY_GROUP_NAME);
   await initializeGroup(LOG_STREAM_KEY, LOG_GROUP_NAME);
 
-  processCampaignMessages();
   processCustomerMessages();
   processOrderMessages();
-  processDeliverySimulations();
   processLogUpdates();
 })();

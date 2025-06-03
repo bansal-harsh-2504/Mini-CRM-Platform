@@ -1,17 +1,20 @@
 import Campaign from "../models/Campaign.js";
 import Customer from "../models/Customer.js";
+import CommunicationLog from "../models/CommunicationLog.js";
 import parseRulesToMongoQuery from "../utils/parseRules.js";
+import axios from "axios";
 import {
   previewAudienceSchema,
   createCampaignSchema,
 } from "../validations/campaign.js";
-import redis from "../services/redisClient.js";
+
+const BATCH_SIZE = 50;
 
 export const getCampaignHistory = async (req, res) => {
   try {
     const campaigns = await Campaign.find({ owner: req.userId }).sort({
       createdAt: -1,
-    });
+    }).select("name status deliveryStats audienceSize createdAt");
     res.status(200).json({ success: true, data: { campaigns } });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -51,10 +54,18 @@ export const createCampaign = async (req, res) => {
   }
 
   try {
+    const vendor_reference = req.vendor_reference;
     const { name, rules, logic, objective } = req.body;
     const mongoQuery = await parseRulesToMongoQuery(rules, logic);
     const customers = await Customer.find(mongoQuery);
     const audienceSize = customers.length;
+
+    if (audienceSize === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No customers match the selected criteria"
+      });
+    }
 
     const campaign = await Campaign.create({
       owner: req.userId,
@@ -66,36 +77,44 @@ export const createCampaign = async (req, res) => {
       deliveryStats: { sent: 0, failed: 0 },
     });
 
-    res.status(201).json({ success: true, data: { campaign } });
+    for (let i = 0; i < customers.length; i += BATCH_SIZE) {
+      const batch = customers.slice(i, i + BATCH_SIZE);
 
-    (async () => {
-      try {
-        const pipeline = redis.pipeline();
-        for (const customer of customers) {
-          const personalizedMessage = `Hi ${customer.name}, ${objective}`;
-          pipeline.xadd(
-            "ingestion_stream",
-            "*",
-            "type",
-            "campaign",
-            "campaignId",
-            campaign._id.toString(),
-            "customerId",
-            customer._id.toString(),
-            "message",
-            personalizedMessage,
-            "email",
-            customer.email,
-            "vendor_reference",
-            req.vendor_reference
-          );
-        }
-        await pipeline.exec();
-      } catch (err) {
-        console.error("Error pushing campaign messages to Redis:", err);
+      const logPromises = batch.map(customer => ({
+        campaignId: campaign._id,
+        customerId: customer._id,
+        message: `Hi ${customer.name}, ${objective}`,
+        delivery_status: 'pending',
+        vendor_reference
+      }));
+
+      await CommunicationLog.insertMany(logPromises);
+
+      const messagePromises = batch.map((customer, index) =>
+        axios.post(`${process.env.BASE_URL_BACKEND}/api/vendor/send`, {
+          campaignId: campaign._id,
+          customerId: customer._id,
+          personalizedMessage: `Hi ${customer.name}, ${objective}`,
+          email: customer.email,
+          vendor_reference
+        }).catch(error => {
+          console.error(`Failed to send message to ${customer.email}:`, error.message);
+          return null;
+        })
+      );
+
+      await Promise.all(messagePromises);
+    }
+
+    res.status(201).json({
+      success: true,
+      data: {
+        campaign,
+        message: `Campaign created and ${audienceSize} messages queued for delivery`
       }
-    })();
+    });
   } catch (error) {
+    console.error('Campaign creation error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
