@@ -204,6 +204,47 @@ components:
           type: string
           format: date-time
 
+    GoogleAuthRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: Google OAuth2 ID token
+
+    JWTAuth:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT token for authenticated requests
+        expiresIn:
+          type: integer
+          description: Expiration time in seconds
+
+    SegmentPreview:
+      type: object
+      properties:
+        audienceSize:
+          type: integer
+          description: Estimated number of users matching the segmentation rules
+        matchedCustomerIds:
+          type: array
+          description: Optional list of matched customer IDs (if included)
+          items:
+            type: string
+            format: ObjectId
+
+    AIMessageSuggestion:
+      type: object
+      properties:
+        suggestions:
+          type: array
+          description: List of AI-generated SMS suggestions
+          items:
+            type: string
+
 paths:
   /api/auth/google:
     post:

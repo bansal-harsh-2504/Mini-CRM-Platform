@@ -17,11 +17,7 @@ export const authenticateUser = async (req, res) => {
   }
 
   const { credentials } = req.body;
-
-  if (!credentials) {
-    return res.status(400).json({ message: "No credentials provided" });
-  }
-
+  
   try {
     const ticket = await oauth2Client.verifyIdToken({
       idToken: credentials,

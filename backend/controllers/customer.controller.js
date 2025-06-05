@@ -1,4 +1,3 @@
-import Customer from "../models/Customer.js";
 import { ingestCustomersSchema } from "../validations/customer.js";
 import redis from "../services/redisClient.js";
 
@@ -26,9 +25,7 @@ export const ingestCustomers = async (req, res) => {
         "name",
         cust.name,
         "phone",
-        cust.phone || "",
-        "customData",
-        JSON.stringify(cust.customData || {})
+        cust.phone || ""
       );
     }
     await pipeline.exec();

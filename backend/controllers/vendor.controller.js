@@ -15,27 +15,36 @@ export const simulateDelivery = async (req, res) => {
       .json({ success: false, message: error.details[0].message });
   }
 
-  const { campaignId, customerId, personalizedMessage, email, vendor_reference } = req.body;
-  const isSuccess = Math.random() < DELIVERY_SUCCESS_RATE;
+  const { campaignId, vendor_reference, personalizedMessage, customers } =
+    req.body;
 
-  try {
-    console.log(`Campaign ${campaignId} - Attempting delivery to ${email}`);
+  const receiptPayload = customers.map((customer) => {
+    const isSuccess = Math.random() < DELIVERY_SUCCESS_RATE;
 
-    await axios.post(`${process.env.BASE_URL_BACKEND}/api/vendor/receipt`, {
+    console.log(
+      `Campaign ${campaignId} - Attempting delivery to ${customer.email}`
+    );
+
+    return {
       campaignId,
-      customerId,
+      customerId: customer.customerId,
       delivery_status: isSuccess ? "sent" : "failed",
       message: personalizedMessage,
-      vendor_reference
+      vendor_reference,
+    };
+  });
+
+  try {
+    await axios.post(`${process.env.BASE_URL_BACKEND}/api/vendor/receipt`, {
+      deliveries: receiptPayload,
     });
 
     res.json({
       success: true,
-      delivery_status: isSuccess ? "sent" : "failed",
-      message: `Delivery ${isSuccess ? "successful" : "failed"}`
+      message: `Batch of ${customers.length} deliveries processed.`,
     });
   } catch (error) {
-    console.error("Error in delivery simulation:", error.message);
+    console.error("Error in bulk delivery simulation:", error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -43,35 +52,50 @@ export const simulateDelivery = async (req, res) => {
 export const updateLog = async (req, res) => {
   const { error } = updateLogSchema.validate(req.body);
   if (error) {
-    return res
-      .status(400)
-      .json({ success: false, message: error.details[0].message });
+    return res.status(400).json({
+      success: false,
+      message: error.details[0].message,
+    });
   }
 
-  const { campaignId, customerId, delivery_status, vendor_reference, message } = req.body;
+  const logs = req.body;
 
   try {
-    await redis.xadd(
-      "log_update_stream",
-      "*",
-      "campaignId",
-      campaignId,
-      "customerId",
-      customerId,
-      "delivery_status",
-      delivery_status,
-      "vendor_reference",
-      vendor_reference,
-      "message",
-      message
-    );
+    const multi = redis.multi();
+
+    logs.forEach((log) => {
+      const {
+        campaignId,
+        customerId,
+        delivery_status,
+        vendor_reference,
+        message,
+      } = log;
+
+      multi.xadd(
+        "log_update_stream",
+        "*",
+        "campaignId",
+        campaignId,
+        "customerId",
+        customerId,
+        "delivery_status",
+        delivery_status,
+        "vendor_reference",
+        vendor_reference,
+        "message",
+        message
+      );
+    });
+
+    await multi.exec();
 
     res.status(200).json({
       success: true,
-      message: "Log update queued"
+      message: `${logs.length} logs queued for processing`,
     });
   } catch (error) {
-    console.error("Error updating delivery log:", error.message);
+    console.error("Error updating delivery logs:", error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 };

@@ -59,43 +59,58 @@ async function processCustomerMessages() {
 
       if (!response) continue;
 
+      const entries = [];
+
       for (const [, messages] of response) {
         for (const [id, fields] of messages) {
           const data = parseFields(fields);
-          await handleCustomerIngestion(data);
-          await redis.xack(CUSTOMER_STREAM_KEY, CUSTOMER_GROUP_NAME, id);
+          entries.push({ id, data });
         }
       }
+
+      if (entries.length > 0) {
+        await handleCustomerIngestion(entries);
+      }
     } catch (err) {
-      console.error("Customer stream read error:", err);
+      console.error("Customer stream read error:", err.message);
     }
   }
 }
 
-async function handleCustomerIngestion({
-  owner,
-  email,
-  name,
-  phone,
-  customData,
-}) {
-  try {
-    const parsedData = {
-      owner,
-      email,
-      name,
-      phone,
-      customData: JSON.parse(customData || "{}"),
-    };
+async function handleCustomerIngestion(entries) {
+  const bulkOps = [];
+  const ackIds = [];
 
-    await Customer.updateOne(
-      { owner, email },
-      { $set: parsedData },
-      { upsert: true }
-    );
-    console.log("Customer ingested successfully:", email);
-  } catch (err) {
-    console.error("Error processing customer ingestion:", err.message);
+  for (const { id, data } of entries) {
+    try {
+      const parsed = {
+        owner: data.owner,
+        email: data.email,
+        name: data.name,
+        phone: data.phone,
+      };
+
+      bulkOps.push({
+        updateOne: {
+          filter: { owner: parsed.owner, email: parsed.email },
+          update: { $set: parsed },
+          upsert: true,
+        },
+      });
+
+      ackIds.push(id);
+    } catch (err) {
+      console.error("Error processing customer:", err.message);
+    }
+  }
+  if (bulkOps.length > 0) {
+    try {
+      await Customer.bulkWrite(bulkOps);
+      await redis.xack(CUSTOMER_STREAM_KEY, CUSTOMER_GROUP_NAME, ...ackIds);
+      console.log(`Successfully ingested ${bulkOps.length} customers`);
+    } catch (err) {
+      console.error("Bulk ingestion error:", err.message);
+    }
   }
 }
 
@@ -114,46 +129,92 @@ async function processOrderMessages() {
         ORDER_STREAM_KEY,
         ">"
       );
+
       if (!response) continue;
+
+      const entries = [];
+
       for (const [, messages] of response) {
         for (const [id, fields] of messages) {
           const data = parseFields(fields);
-          await handleOrderIngestion(data);
-          await redis.xack(ORDER_STREAM_KEY, ORDER_GROUP_NAME, id);
+          entries.push({ id, data });
         }
       }
+
+      if (entries.length > 0) {
+        await handleOrderIngestion(entries);
+      }
     } catch (err) {
-      console.error("Order stream read error:", err);
+      console.error("Order stream read error:", err.message);
     }
   }
 }
 
-async function handleOrderIngestion({
-  customerId,
-  owner,
-  orderDate,
-  amount,
-  email,
-  items,
-}) {
+async function handleOrderIngestion(entries) {
+  const ordersToInsert = [];
+  const customerUpdates = new Map();
+  const ackIds = [];
+
+  for (const { id, data } of entries) {
+    try {
+      const { customerId, owner, orderDate, amount, email, items } = data;
+
+      const parsedItems = JSON.parse(items || "[]");
+      const parsedAmount = Number(amount);
+
+      ordersToInsert.push({
+        customerId,
+        owner,
+        orderDate,
+        amount: parsedAmount,
+        email,
+        items: parsedItems,
+      });
+
+      if (!customerUpdates.has(customerId)) {
+        customerUpdates.set(customerId, {
+          totalSpend: 0,
+          lastPurchased: orderDate,
+        });
+      }
+      const update = customerUpdates.get(customerId);
+      update.totalSpend += parsedAmount;
+      update.lastPurchased = orderDate;
+
+      ackIds.push(id);
+    } catch (err) {
+      console.error("Error parsing order message:", err.message);
+    }
+  }
+
   try {
-    await Order.create({
-      customerId,
-      owner,
-      orderDate,
-      amount: Number(amount),
-      email,
-      items: JSON.parse(items || "[]"),
-    });
-    await Customer.findByIdAndUpdate(customerId, {
-      $inc: {
-        totalSpend: Number(amount),
-      },
-      lastPurchased: orderDate,
-    });
-    console.log(`Processed order for ${email}`);
+    if (ordersToInsert.length > 0) {
+      await Order.insertMany(ordersToInsert);
+      console.log(`Inserted ${ordersToInsert.length} orders`);
+    }
+
+    const bulkCustomerOps = Array.from(customerUpdates.entries()).map(
+      ([customerId, { totalSpend, lastPurchased }]) => ({
+        updateOne: {
+          filter: { _id: customerId },
+          update: {
+            $inc: { totalSpend },
+            $set: { lastPurchased },
+          },
+        },
+      })
+    );
+
+    if (bulkCustomerOps.length > 0) {
+      await Customer.bulkWrite(bulkCustomerOps);
+      console.log(`Updated ${bulkCustomerOps.length} customers`);
+    }
+
+    if (ackIds.length > 0) {
+      await redis.xack(ORDER_STREAM_KEY, ORDER_GROUP_NAME, ...ackIds);
+    }
   } catch (err) {
-    console.error("Error processing order:", err.message);
+    console.error("Bulk order ingestion error:", err.message);
   }
 }
 
