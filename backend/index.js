@@ -10,6 +10,7 @@ import aiRouter from "./services/ai.js";
 import vendorRouter from "./routes/vendor.routes.js";
 import { authenticateJWT } from "./middlewares/auth.js";
 import setupSwagger from "./docs/swagger.js";
+import User from "./models/User.js";
 
 dotenv.config();
 
@@ -40,6 +41,16 @@ app.use("/api/ai", authenticateJWT, aiRouter);
 app.use("/api/vendor", vendorRouter);
 
 setupSwagger(app);
+
+// Health check
+app.get("/health", async (req, res) => {
+  try {
+    await User.findOne({}, "_id").lean();
+    res.status(200).send("OK");
+  } catch (err) {
+    res.status(500).send("MongoDB connection failed");
+  }
+});
 
 // Root endpoint
 app.get("/", (req, res) => {
