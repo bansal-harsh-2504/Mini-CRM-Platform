@@ -2,9 +2,9 @@ name: Keep Backend Alive
 
 on:
   schedule:
-    - cron: "*/14 * * * *" # Every 14 minutes
+    - cron: "0 */3 * * *"
   workflow_dispatch:
-
+  
 jobs:
   ping-backend:
     runs-on: ubuntu-latest
